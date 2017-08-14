@@ -12,6 +12,11 @@ import {
 	CompletionItem, CompletionItemKind
 } from 'vscode-languageserver';
 
+import Uri from 'vscode-uri';
+import tmp = require('tmp');
+import fs = require('fs');
+
+
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 
@@ -47,12 +52,11 @@ documents.onDidChangeContent((change) => {
 
 // The settings interface describe the server relevant settings part
 interface Settings {
-	languageServerExample: ExampleSettings;
+	languageServerPerl6: Perl6Settings;
 }
 
-// These are the example settings we defined in the client's package.json
-// file
-interface ExampleSettings {
+// These are the settings we defined in the client's package.json
+interface Perl6Settings {
 	maxNumberOfProblems: number;
 }
 
@@ -62,33 +66,113 @@ let maxNumberOfProblems: number;
 // as well.
 connection.onDidChangeConfiguration((change) => {
 	let settings = <Settings>change.settings;
-	maxNumberOfProblems = settings.languageServerExample.maxNumberOfProblems || 100;
+	maxNumberOfProblems = settings.languageServerPerl6.maxNumberOfProblems || 100;
 	// Revalidate any open text documents
 	documents.all().forEach(validateTextDocument);
 });
 
-function validateTextDocument(textDocument: TextDocument): void {
-	let diagnostics: Diagnostic[] = [];
-	let lines = textDocument.getText().split(/\r?\n/g);
-	let problems = 0;
-	for (var i = 0; i < lines.length && problems < maxNumberOfProblems; i++) {
-		let line = lines[i];
-		let index = line.indexOf('typescript');
-		if (index >= 0) {
-			problems++;
+function parse_undeclared(type: string, lines: string, diagnostics: Diagnostic[]) {
+	let next_lines = lines.split(/\r?\n/g);
+	for (let line of next_lines) {
+		let m2 = /^\s+(\S+) used at line (\d+)(.*)$/.exec(line);
+		if (m2) {
+			let name = m2[1];
+			let line_num = +m2[2] - 1;
+			let advice = m2[3];
+
 			diagnostics.push({
-				severity: DiagnosticSeverity.Warning,
+				severity: DiagnosticSeverity.Error,
 				range: {
-					start: { line: i, character: index},
-					end: { line: i, character: index + 10 }
+					start: { line: line_num, character: 0 },
+					end: { line: line_num, character: 1000 }
 				},
-				message: `${line.substr(index, 10)} should be spelled TypeScript`,
-				source: 'ex'
+				message: type + ' ' + name + ' is not declared' + advice,
+				source: 'perl6'
 			});
 		}
+		else {
+			break;
+		}
 	}
-	// Send the computed diagnostics to VSCode.
-	connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+}
+
+function parse_missing_libs(m: RegExpExecArray, diagnostics: Diagnostic[]) {
+	let missing_lib = m[1];
+	let line_num = +m[2] - 1;
+	let lib_paths = m[3];
+	diagnostics.push({
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: line_num, character: 0 },
+			end: { line: line_num, character: 1000 }
+		},
+		message: 'Could not find ' + missing_lib + ' in:\n' + lib_paths,
+		source: 'perl6'
+	});
+}
+
+function parse_generic_single(msg: string, diagnostics: Diagnostic[]) {
+	let m = /(.*)\r?\nat .*?:(\d+)\r?\n------> (.*)/.exec(msg);
+	let finding = m[1];
+	let line_num = +m[2] - 1;
+	let here = m[3];
+	diagnostics.push({
+		severity: DiagnosticSeverity.Error,
+		range: {
+			start: { line: line_num, character: 0 },
+			end: { line: line_num, character: 1000 }
+		},
+		message: finding,
+		source: 'perl6'
+	});}
+
+function parse_generics(msg: string, diagnostics: Diagnostic[]) {
+	let reea;
+	let text = msg.replace(/===SORRY.*\r?\n/, "");
+	while( reea = /.*\r?\nat .*?:\d+\r?\n------> .*/.exec(text)) {
+		let single = reea[0];
+		parse_generic_single(single, diagnostics);
+		text = text.slice(single.length);
+	}
+}
+
+function parseErrorMessage(msg: string, diagnostics: Diagnostic[]) {
+	let m = /Could not find (\S+) at line (\d+) in:[\r\n]([\s\S]+)/.exec(msg);
+	if (m) {
+		parse_missing_libs(m, diagnostics);
+		return;
+	}
+
+	m = /Undeclared names?:\r?\n([\s\S]+)/.exec(msg);
+	if (m) {
+		parse_undeclared('name', m[1], diagnostics);
+	}
+	m = /Undeclared routines?:\r?\n([\s\S]+)/.exec(msg);
+	if (m) {
+		parse_undeclared('routine', m[1], diagnostics);
+		return;
+	}
+
+	parse_generics(msg, diagnostics);
+}
+
+function validateTextDocument(textDocument: TextDocument): void {
+	let diagnostics: Diagnostic[] = [];
+	let path = Uri.parse(textDocument.uri).fsPath;
+	let myenv = process.env;
+	myenv.RAKUDO_ERROR_COLOR = 0;
+	var tmpfile = tmp.tmpNameSync({ prefix: 'vscode-perl6-', postfix: '.p6' });
+	fs.writeFileSync(tmpfile, textDocument.getText());
+	let exec = require('child_process').exec;
+	exec('perl6 -c "' + tmpfile + '"', myenv,
+		function callback(error, stdout, stderr) {
+			fs.unlinkSync(tmpfile);
+			if (error && stderr) {
+				parseErrorMessage(stderr, diagnostics);
+			}
+			connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
+		}
+	);
 }
 
 connection.onDidChangeWatchedFiles((change) => {
@@ -121,10 +205,10 @@ connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): Comp
 connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 	if (item.data === 1) {
 		item.detail = 'TypeScript details',
-		item.documentation = 'TypeScript documentation'
+			item.documentation = 'TypeScript documentation'
 	} else if (item.data === 2) {
 		item.detail = 'JavaScript details',
-		item.documentation = 'JavaScript documentation'
+			item.documentation = 'JavaScript documentation'
 	}
 	return item;
 });
