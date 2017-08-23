@@ -16,9 +16,10 @@ import Uri from 'vscode-uri';
 import tmp = require('tmp');
 import fs = require('fs');
 
-
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+
+connection.console.log("Language server started...");
 
 // Create a simple text document manager. The text document manager
 // supports full document sync only
@@ -71,7 +72,7 @@ connection.onDidChangeConfiguration((change) => {
 	documents.all().forEach(validateTextDocument);
 });
 
-function parse_undeclared(type: string, lines: string, diagnostics: Diagnostic[]) {
+function parseUndeclared(type: string, lines: string, diagnostics: Diagnostic[]) {
 	let next_lines = lines.split(/\r?\n/g);
 	for (let line of next_lines) {
 		let m2 = /^\s+(\S+) used at line (\d+)(.*)$/.exec(line);
@@ -96,7 +97,7 @@ function parse_undeclared(type: string, lines: string, diagnostics: Diagnostic[]
 	}
 }
 
-function parse_missing_libs(m: RegExpExecArray, diagnostics: Diagnostic[]) {
+function parseMissingLibs(m: RegExpExecArray, diagnostics: Diagnostic[]) {
 	let missing_lib = m[1];
 	let line_num = +m[2] - 1;
 	let lib_paths = m[3];
@@ -111,7 +112,7 @@ function parse_missing_libs(m: RegExpExecArray, diagnostics: Diagnostic[]) {
 	});
 }
 
-function parse_generic_single(msg: string, diagnostics: Diagnostic[]) {
+function parseGenericSingle(msg: string, diagnostics: Diagnostic[]) {
 	let m = /(.*)\r?\nat .*?:(\d+)\r?\n------> (.*)/.exec(msg);
 	let finding = m[1];
 	let line_num = +m[2] - 1;
@@ -126,12 +127,12 @@ function parse_generic_single(msg: string, diagnostics: Diagnostic[]) {
 		source: 'perl6'
 	});}
 
-function parse_generics(msg: string, diagnostics: Diagnostic[]) {
+function parseGenerics(msg: string, diagnostics: Diagnostic[]) {
 	let reea;
 	let text = msg.replace(/===SORRY.*\r?\n/, "");
 	while( reea = /.*\r?\nat .*?:\d+\r?\n------> .*/.exec(text)) {
 		let single = reea[0];
-		parse_generic_single(single, diagnostics);
+		parseGenericSingle(single, diagnostics);
 		text = text.slice(single.length);
 	}
 }
@@ -139,24 +140,25 @@ function parse_generics(msg: string, diagnostics: Diagnostic[]) {
 function parseErrorMessage(msg: string, diagnostics: Diagnostic[]) {
 	let m = /Could not find (\S+) at line (\d+) in:[\r\n]([\s\S]+)/.exec(msg);
 	if (m) {
-		parse_missing_libs(m, diagnostics);
+		parseMissingLibs(m, diagnostics);
 		return;
 	}
 
 	m = /Undeclared names?:\r?\n([\s\S]+)/.exec(msg);
 	if (m) {
-		parse_undeclared('name', m[1], diagnostics);
+		parseUndeclared('name', m[1], diagnostics);
 	}
 	m = /Undeclared routines?:\r?\n([\s\S]+)/.exec(msg);
 	if (m) {
-		parse_undeclared('routine', m[1], diagnostics);
+		parseUndeclared('routine', m[1], diagnostics);
 		return;
 	}
 
-	parse_generics(msg, diagnostics);
+	parseGenerics(msg, diagnostics);
 }
 
 function validateTextDocument(textDocument: TextDocument): void {
+	connection.console.log("\tValidating...");
 	let diagnostics: Diagnostic[] = [];
 	let path = Uri.parse(textDocument.uri).fsPath;
 	let myenv = process.env;
@@ -164,12 +166,14 @@ function validateTextDocument(textDocument: TextDocument): void {
 	var tmpfile = tmp.tmpNameSync({ prefix: 'vscode-perl6-', postfix: '.p6' });
 	fs.writeFileSync(tmpfile, textDocument.getText());
 	let exec = require('child_process').exec;
+	connection.console.log("\t\tRunning perl6...");
 	exec('perl6 -c "' + tmpfile + '"', myenv,
 		function callback(error, stdout, stderr) {
 			fs.unlinkSync(tmpfile);
 			if (error && stderr) {
 				parseErrorMessage(stderr, diagnostics);
 			}
+			connection.console.log("Diag: " + JSON.stringify(diagnostics));
 			connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 		}
 	);
