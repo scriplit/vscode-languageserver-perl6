@@ -161,9 +161,11 @@ function validateTextDocument(textDocument: TextDocument): void {
 	connection.console.log("\tValidating...");
 	let diagnostics: Diagnostic[] = [];
 	let path = Uri.parse(textDocument.uri).fsPath;
+	connection.console.log("\t\tFile: " + path);
 	let myenv = process.env;
 	myenv.RAKUDO_ERROR_COLOR = 0;
 	var tmpfile = tmp.tmpNameSync({ prefix: 'vscode-perl6-', postfix: '.p6' });
+	connection.console.log("\t\tTemp: " + tmpfile);
 	fs.writeFileSync(tmpfile, textDocument.getText());
 	let exec = require('child_process').exec;
 	connection.console.log("\t\tRunning perl6...");
@@ -171,6 +173,7 @@ function validateTextDocument(textDocument: TextDocument): void {
 		function callback(error, stdout, stderr) {
 			fs.unlinkSync(tmpfile);
 			if (error && stderr) {
+				connection.console.log("\t\tstdErr: " + stderr);
 				parseErrorMessage(stderr, diagnostics);
 			}
 			connection.console.log("Diag: " + JSON.stringify(diagnostics));
