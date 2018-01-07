@@ -5,11 +5,9 @@
 'use strict';
 
 import {
-	IPCMessageReader, IPCMessageWriter,
-	createConnection, IConnection, TextDocumentSyncKind,
-	TextDocuments, TextDocument, Diagnostic, DiagnosticSeverity,
-	InitializeParams, InitializeResult, TextDocumentPositionParams,
-	CompletionItem, CompletionItemKind
+	IPCMessageReader, IPCMessageWriter, createConnection, IConnection, TextDocuments, TextDocument, 
+	Diagnostic, DiagnosticSeverity, InitializeResult, TextDocumentPositionParams, CompletionItem, 
+	CompletionItemKind
 } from 'vscode-languageserver';
 
 import Uri from 'vscode-uri';
@@ -18,6 +16,7 @@ import fs = require('fs');
 
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
+let perl6Path: string;
 
 connection.console.log("Language server started...");
 
@@ -33,6 +32,7 @@ documents.listen(connection);
 let workspaceRoot: string;
 connection.onInitialize((params): InitializeResult => {
 	workspaceRoot = params.rootPath;
+	connection.console.log(`[Server(${process.pid}) ${workspaceRoot}] Started and initialize received`);
 	return {
 		capabilities: {
 			// Tell the client that the server works in FULL text document sync mode
@@ -53,24 +53,47 @@ documents.onDidChangeContent((change) => {
 
 // The settings interface describe the server relevant settings part
 interface Settings {
-	languageServerPerl6: Perl6Settings;
+	perl6: Perl6Settings;
 }
 
 // These are the settings we defined in the client's package.json
 interface Perl6Settings {
-	maxNumberOfProblems: number;
+ 	path: string;
 }
 
 // hold the maxNumberOfProblems setting
-let maxNumberOfProblems: number;
+// let _maxNumberOfProblems: number;
 // The settings have changed. Is send on server activation
 // as well.
 connection.onDidChangeConfiguration((change) => {
 	let settings = <Settings>change.settings;
-	maxNumberOfProblems = settings.languageServerPerl6.maxNumberOfProblems || 100;
+	let path = settings.perl6.path;
+	checkExec(path);
+	//_maxNumberOfProblems = settings.languageServerPerl6.maxNumberOfProblems || 100;
 	// Revalidate any open text documents
 	documents.all().forEach(validateTextDocument);
 });
+
+function checkExec(path: string) {
+	let exec = require('child_process').exec;
+	let myenv = process.env;
+	myenv.RAKUDO_ERROR_COLOR = 0;
+	if (path) {
+		// Take what was configured in settings
+		perl6Path = path;
+	}
+	else {
+		// Assume perl6 is in the $PATH
+		perl6Path = "perl6";
+	}
+	exec(perl6Path + ' -v', myenv,
+		function callback(error: string, _stdout: string, stderr: string) {
+			if (error && stderr) {
+				connection.window.showErrorMessage(stderr);
+			}
+		}
+	);	
+}
 
 function parseUndeclared(type: string, lines: string, diagnostics: Diagnostic[]) {
 	let next_lines = lines.split(/\r?\n/g);
@@ -116,7 +139,6 @@ function parseGenericSingle(msg: string, diagnostics: Diagnostic[]) {
 	let m = /(.*)\r?\nat .*?:(\d+)\r?\n------> (.*)/.exec(msg);
 	let finding = m[1];
 	let line_num = +m[2] - 1;
-	let here = m[3];
 	diagnostics.push({
 		severity: DiagnosticSeverity.Error,
 		range: {
@@ -169,8 +191,8 @@ function validateTextDocument(textDocument: TextDocument): void {
 	fs.writeFileSync(tmpfile, textDocument.getText());
 	let exec = require('child_process').exec;
 	connection.console.log("\t\tRunning perl6...");
-	exec('perl6 -c "' + tmpfile + '"', myenv,
-		function callback(error, stdout, stderr) {
+	exec(perl6Path + ' -c "' + tmpfile + '"', myenv,
+		function callback(error: string, _stdout: string, stderr: string) {
 			fs.unlinkSync(tmpfile);
 			if (error && stderr) {
 				connection.console.log("\t\tstdErr: " + stderr);
@@ -182,14 +204,14 @@ function validateTextDocument(textDocument: TextDocument): void {
 	);
 }
 
-connection.onDidChangeWatchedFiles((change) => {
+connection.onDidChangeWatchedFiles((_change) => {
 	// Monitored files have change in VSCode
 	connection.console.log('We received an file change event');
 });
 
 
 // This handler provides the initial list of the completion items.
-connection.onCompletion((textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
+connection.onCompletion((_textDocumentPosition: TextDocumentPositionParams): CompletionItem[] => {
 	// The pass parameter contains the position of the text document in 
 	// which code complete got requested. For the example we ignore this
 	// info and always provide the same completion items.
@@ -220,26 +242,22 @@ connection.onCompletionResolve((item: CompletionItem): CompletionItem => {
 	return item;
 });
 
-let t: Thenable<string>;
-
 /*
 connection.onDidOpenTextDocument((params) => {
 	// A text document got opened in VSCode.
-	// params.textDocument.uri uniquely identifies the document. For documents store on disk this is a file URI.
-	// params.textDocument.text the initial full content of the document.
+	// params.uri uniquely identifies the document. For documents store on disk this is a file URI.
+	// params.text the initial full content of the document.
 	connection.console.log(`${params.textDocument.uri} opened.`);
 });
-
 connection.onDidChangeTextDocument((params) => {
 	// The content of a text document did change in VSCode.
-	// params.textDocument.uri uniquely identifies the document.
+	// params.uri uniquely identifies the document.
 	// params.contentChanges describe the content changes to the document.
 	connection.console.log(`${params.textDocument.uri} changed: ${JSON.stringify(params.contentChanges)}`);
 });
-
 connection.onDidCloseTextDocument((params) => {
 	// A text document got closed in VSCode.
-	// params.textDocument.uri uniquely identifies the document.
+	// params.uri uniquely identifies the document.
 	connection.console.log(`${params.textDocument.uri} closed.`);
 });
 */

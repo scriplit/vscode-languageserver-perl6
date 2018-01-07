@@ -6,15 +6,15 @@
 
 import * as path from 'path';
 
-import { workspace, Disposable, ExtensionContext } from 'vscode';
-import { LanguageClient, LanguageClientOptions, SettingMonitor, ServerOptions, TransportKind } from 'vscode-languageclient';
+import { workspace, ExtensionContext } from 'vscode';
+import { LanguageClient, LanguageClientOptions, ServerOptions, TransportKind } from 'vscode-languageclient';
 
 export function activate(context: ExtensionContext) {
 
 	// The server is implemented in node
 	let serverModule = context.asAbsolutePath(path.join('server', 'server.js'));
 	// The debug options for the server
-	let debugOptions = { execArgv: ["--nolazy", "--debug=6009"] };
+	let debugOptions = { execArgv: ["--nolazy", "--inspect=6009"] };
 	
 	// If the extension is launched in debug mode then the debug server options are used
 	// Otherwise the run options are used
@@ -26,10 +26,10 @@ export function activate(context: ExtensionContext) {
 	// Options to control the language client
 	let clientOptions: LanguageClientOptions = {
 		// Register the server for perl6 documents
-		documentSelector: ['perl6'],
+		documentSelector: [{scheme: 'file', language: 'perl6'}],
 		synchronize: {
-			// Synchronize the setting section 'languageServerPerl6' to the server
-			configurationSection: 'languageServerPerl6',
+			// Synchronize the setting section 'perl6' to the server
+			configurationSection: 'perl6',
 			// Notify the server about file changes to '.clientrc files contain in the workspace
 			fileEvents: workspace.createFileSystemWatcher('**/.clientrc')
 		}

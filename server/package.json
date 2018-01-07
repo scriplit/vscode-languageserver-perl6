@@ -1,23 +1,24 @@
 {
-  "name": "perl6-lsp-server",
-  "description": "Perl 6 language server",
-  "version": "0.0.1",
-  "author": "ennio",
-  "license": "MIT",
-  "engines": {
-    "node": "*"
-  },
-  "dependencies": {
-    "tmp": "0.0.33",
-    "vscode-languageserver": "^3.1.0",
-    "vscode-uri": "^1.0.1"
-  },
-  "devDependencies": {
-    "@types/node": "^6.0.52",
-    "typescript": "^2.1.5"
-  },
-  "scripts": {
-    "compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
-    "watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc --watch -p ."
-  }
+	"name": "perl6-lsp-server",
+	"description": "Perl 6 language server.",
+	"version": "0.0.1",
+	"author": "scriplit",
+	"license": "MIT",
+	"engines": {
+		"node": "*"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/scriplit/vscode-languageserver-perl6"
+	},
+	"dependencies": {
+		"vscode-languageserver": "^3.4.2",
+		"tmp": "0.0.33",
+		"vscode-uri": "^1.0.1"
+	},
+	"scripts": {
+		"installServer": "installServerIntoExtension ../client ./package.json ./tsconfig.json",
+		"compile": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -p .",
+		"watch": "installServerIntoExtension ../client ./package.json ./tsconfig.json && tsc -w -p ."
+	}
 }
