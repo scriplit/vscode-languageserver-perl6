@@ -28,5 +28,16 @@
 	"engines": {
     	"vscode": "^1.19.1"
 	},
-	"icon": "Camelia-128px-SQUARE.png"
+	"icon": "Camelia-128px-SQUARE.png",
+	"categories": [
+		"Languages",
+		"Linters"
+	],
+	"keywords": [
+		"rakudo",
+		"perl6",
+		"6lang",
+		"perl",
+		"six"
+	]
 }
