@@ -3,7 +3,7 @@
 	"description": "A language server for perl6",
 	"author": "scriplit",
 	"license": "MIT",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"publisher": "scriplit",
 	"repository": {
 		"type": "git",
@@ -24,5 +24,9 @@
 	},
 	"dependencies": {
 		"@types/tmp": "0.0.33"
-	}
+	},
+	"engines": {
+    	"vscode": "^1.19.1"
+	},
+	"icon": "Camelia-128px-SQUARE.png"
 }
