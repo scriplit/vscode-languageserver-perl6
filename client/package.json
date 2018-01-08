@@ -1,20 +1,30 @@
 {
-	"name": "perl6-lsp-client",
-	"description": "Perl 6 language client",
+	"name": "perl6-lsp",
+	"displayName": "Perl 6 language support",
+	"description": "Shows Perl 6 errors as you type",
 	"author": "scriplit",
 	"license": "MIT",
-	"version": "0.0.1",
+	"version": "0.2.5",
 	"publisher": "scriplit",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/scriplit/vscode-languageserver-perl6"
 	},
 	"engines": {
-		"vscode": "^1.16.0"
+		"vscode": "^1.19.1"
 	},
-	"categories": [
-		"Other"
-	],
+    "icon": "Camelia-128px-SQUARE.png",
+    "categories": [
+        "Languages",
+        "Linters"
+    ],
+    "keywords": [
+        "rakudo",
+        "perl6",
+        "6lang",
+        "perl",
+        "six"
+    ],
 	"activationEvents": [
 		"onLanguage:perl6"
 	],
@@ -28,7 +38,7 @@
 					"scope": "resource",
 					"type": "string",
 					"default": "",
-					"description": "Path to the perl6 executable, if not in $PATH"
+					"description": "Path to the perl6 executable, if not in PATH"
 				},
 				"perl6.trace.server": {
 					"scope": "window",

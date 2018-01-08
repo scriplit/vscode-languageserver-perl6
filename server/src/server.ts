@@ -135,10 +135,19 @@ function parseMissingLibs(m: RegExpExecArray, diagnostics: Diagnostic[]) {
 	});
 }
 
-function parseGenericSingle(msg: string, diagnostics: Diagnostic[]) {
-	let m = /(.*)\r?\nat .*?:(\d+)\r?\n------> (.*)/.exec(msg);
-	let finding = m[1];
-	let line_num = +m[2] - 1;
+function parseGenerics(msg: string, diagnostics: Diagnostic[]) {
+	let m;
+	let finding;
+	let line_num;
+	let text = msg.replace(/===SORRY.*\r?\n/, "");
+	if( m = /(.*)\r?\nat .*?:(\d+)\r?\n------> .*/.exec(text)) {
+		finding = m[1];
+		line_num = +m[2] - 1;
+	}
+	else {
+		finding = text;
+		line_num = 0;
+	}
 	diagnostics.push({
 		severity: DiagnosticSeverity.Error,
 		range: {
@@ -147,16 +156,7 @@ function parseGenericSingle(msg: string, diagnostics: Diagnostic[]) {
 		},
 		message: finding,
 		source: 'perl6'
-	});}
-
-function parseGenerics(msg: string, diagnostics: Diagnostic[]) {
-	let reea;
-	let text = msg.replace(/===SORRY.*\r?\n/, "");
-	while( reea = /.*\r?\nat .*?:\d+\r?\n------> .*/.exec(text)) {
-		let single = reea[0];
-		parseGenericSingle(single, diagnostics);
-		text = text.slice(single.length);
-	}
+	});
 }
 
 function parseErrorMessage(msg: string, diagnostics: Diagnostic[]) {
