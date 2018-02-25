@@ -17,6 +17,7 @@ import fs = require('fs');
 // Create a connection for the server. The connection uses Node's IPC as a transport
 let connection: IConnection = createConnection(new IPCMessageReader(process), new IPCMessageWriter(process));
 let perl6Path: string;
+let perl6Libs: string[] = [];
 
 connection.console.log("Language server started...");
 
@@ -58,7 +59,8 @@ interface Settings {
 
 // These are the settings we defined in the client's package.json
 interface Perl6Settings {
- 	path: string;
+	 path: string;
+	 libs: string;
 }
 
 // hold the maxNumberOfProblems setting
@@ -68,16 +70,20 @@ interface Perl6Settings {
 connection.onDidChangeConfiguration((change) => {
 	let settings = <Settings>change.settings;
 	let path = settings.perl6.path;
-	checkExec(path);
+	let libs = settings.perl6.libs;
+	checkExec(path, libs);
 	//_maxNumberOfProblems = settings.languageServerPerl6.maxNumberOfProblems || 100;
 	// Revalidate any open text documents
 	documents.all().forEach(validateTextDocument);
 });
 
-function checkExec(path: string) {
+function checkExec(path: string, libs: string) {
 	let exec = require('child_process').exec;
 	let myenv = process.env;
 	myenv.RAKUDO_ERROR_COLOR = 0;
+	if (libs.length > 0) {
+		perl6Libs = libs.split(',');
+	}
 	if (path) {
 		// Take what was configured in settings
 		perl6Path = path;
@@ -179,6 +185,16 @@ function parseErrorMessage(msg: string, diagnostics: Diagnostic[]) {
 	parseGenerics(msg, diagnostics);
 }
 
+function libSwitches() : string {
+	let switches : string = "";
+	if (perl6Libs.length > 0) {
+		for (let lib of perl6Libs) {
+			switches += " -I " + lib;
+		}
+	}
+	return switches;
+}
+
 function validateTextDocument(textDocument: TextDocument): void {
 	connection.console.log("\tValidating...");
 	let diagnostics: Diagnostic[] = [];
@@ -191,7 +207,7 @@ function validateTextDocument(textDocument: TextDocument): void {
 	fs.writeFileSync(tmpfile, textDocument.getText());
 	let exec = require('child_process').exec;
 	connection.console.log("\t\tRunning perl6...");
-	exec(perl6Path + ' -c "' + tmpfile + '"', myenv,
+	exec(perl6Path + libSwitches() + ' -c "' + tmpfile + '"', myenv,
 		function callback(error: string, _stdout: string, stderr: string) {
 			fs.unlinkSync(tmpfile);
 			if (error && stderr) {

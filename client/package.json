@@ -13,18 +13,18 @@
 	"engines": {
 		"vscode": "^1.19.1"
 	},
-    "icon": "Camelia-128px-SQUARE.png",
-    "categories": [
-        "Languages",
-        "Linters"
-    ],
-    "keywords": [
-        "rakudo",
-        "perl6",
-        "6lang",
-        "perl",
-        "six"
-    ],
+	"icon": "Camelia-128px-SQUARE.png",
+	"categories": [
+		"Languages",
+		"Linters"
+	],
+	"keywords": [
+		"rakudo",
+		"perl6",
+		"6lang",
+		"perl",
+		"six"
+	],
 	"activationEvents": [
 		"onLanguage:perl6"
 	],
@@ -50,6 +50,12 @@
 					],
 					"default": "off",
 					"description": "Traces the communication between VSCode and the language server."
+				},
+				"perl6.libs": {
+					"scope": "resource",
+					"type": "string",
+					"default": "",
+					"description": "Additional folders to add to the module search path"
 				}
 			}
 		}
