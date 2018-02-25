@@ -4,7 +4,7 @@
 	"description": "Shows Perl 6 errors as you type",
 	"author": "scriplit",
 	"license": "MIT",
-	"version": "0.2.5",
+	"version": "0.3.0",
 	"publisher": "scriplit",
 	"repository": {
 		"type": "git",

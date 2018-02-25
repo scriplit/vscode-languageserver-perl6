@@ -1,7 +1,7 @@
 {
 	"name": "perl6-lsp-server",
 	"description": "Perl 6 language server.",
-	"version": "0.2.3",
+	"version": "0.3.0",
 	"author": "scriplit",
 	"license": "MIT",
 	"engines": {
